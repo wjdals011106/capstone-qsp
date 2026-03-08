@@ -13,7 +13,7 @@
 | 참여자 | GitHub ID | 연구 주제 | 참고 논문 |
 |--------|-----------|-----------|-----------|
 | 박광원 | pangpangwon | Elagolix 임상 3상 데이터 기반 칼슘 항상성/골대사 QSP 모델 검증 | [Validation of a QSP model of calcium homeostasis](https://pubmed.ncbi.nlm.nih.gov/33963686/) |
-| 박정민 | wjdals011106 | 전이성 삼중음성유방암(mTNBC) 면역항암제 반응 예측 QSP 모델 | [A transcriptome-informed QSP model of mTNBC](https://www.science.org/doi/10.1126/sciadv.adg0289) |
+| 박정민 | wjdals011106 | 전이성 삼중음성유방암(mTNBC) 면역항암제 반응 예측 QSP 모델 | [A transcriptome-informed QSP model of mTNBC](https://www.science.org/doi/10.1126/sciadv.adg0289) · [🚀 Shiny App](https://wjdals011106.shinyapps.io/tnbc-qsp-simulator/) |
 | 배정현 | john83072 | 알츠하이머병 Aβ 플라크 표적 치료제 임상실패 원인 분석 QSP 모델 | [In silico analysis for reducing Aβ plaque](https://pubmed.ncbi.nlm.nih.gov/33938131/) |
 | 한상하 | magen2001 | 조현병 항정신병약 반응 예측 QSP 모델 | [Computer-based mechanistic schizophrenia disease model](https://doi.org/10.1371/journal.pone.0049732) |
 
@@ -213,6 +213,7 @@ capstone-qsp/
 
 ### 예시 앱
 - [Merigolix QSP Dashboard](https://pipetqsp.shinyapps.io/merigolix/)
+- [TNBC QSP Simulator (박정민)](https://wjdals011106.shinyapps.io/tnbc-qsp-simulator/)
 
 ---
 
