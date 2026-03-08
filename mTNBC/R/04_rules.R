@@ -67,16 +67,12 @@ compute_rules <- function(state, parms) {
   # RECIST: Sum of longest diameters (SLD)
   # Active metastatic lesions only
   # ---------------------------------------------------------------------------
-  start_Ln1   <- if (!is.null(s$start_Ln1)   && is.finite(s$start_Ln1))   s$start_Ln1   else 0
-  start_Ln2   <- if (!is.null(s$start_Ln2)   && is.finite(s$start_Ln2))   s$start_Ln2   else 0
-  start_other <- if (!is.null(s$start_other) && is.finite(s$start_other)) s$start_other else 0
-
   active_diams <- c(
-    if (isTRUE(start_Ln1   == 1)) rules$d_Ln1 else 0,
-    if (isTRUE(start_Ln2   == 1)) rules$d_Ln2 else 0,
-    if (isTRUE(start_other == 1)) rules$d_oth  else 0
+    if (s$start_Ln1 == 1) rules$d_Ln1 else 0,
+    if (s$start_Ln2 == 1) rules$d_Ln2 else 0,
+    if (s$start_other == 1) rules$d_oth else 0
   )
-  rules$SLD <- rules$d_T + sum(active_diams)  # primary + active mets (cm)
+  rules$SLD <- sum(active_diams)  # sum of longest diameters (cm)
 
   # ---------------------------------------------------------------------------
   # IMMUNE CELL FRACTIONS (for biomarker analysis)

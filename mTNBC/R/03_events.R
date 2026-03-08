@@ -106,66 +106,40 @@ make_event_function <- function(p, t_start = 0, t_end = 700) {
   dose_nM    <- (p$dose_pembrolizumab / p$MW_pembrolizumab * 1e3) / p$V_C * 1e9
   dose_times <- seq(t_start, t_end, by = p$dose_interval)
 
-  # Capture all needed values from p into the closure (avoids parms$ on atomic vector)
-  delay_Ln1    <- p$delay_Ln1
-  delay_Ln2    <- p$delay_Ln2
-  delay_other  <- p$delay_other
-  do_surgery   <- p$do_surgery
-  surgery_time <- p$surgery_time
-  seeding      <- p$seeding
-
-  ncells_C1_Ln1   <- p$ncells_C1_Ln1
-  ncells_C2_Ln1   <- p$ncells_C2_Ln1
-  ncells_C3_Ln1   <- p$ncells_C3_Ln1
-  ncells_C4_Ln1   <- p$ncells_C4_Ln1
-  ncells_C5_Ln1   <- p$ncells_C5_Ln1
-
-  ncells_C1_Ln2   <- p$ncells_C1_Ln2
-  ncells_C2_Ln2   <- p$ncells_C2_Ln2
-  ncells_C3_Ln2   <- p$ncells_C3_Ln2
-  ncells_C4_Ln2   <- p$ncells_C4_Ln2
-  ncells_C5_Ln2   <- p$ncells_C5_Ln2
-
-  ncells_C1_other <- p$ncells_C1_other
-  ncells_C2_other <- p$ncells_C2_other
-  ncells_C3_other <- p$ncells_C3_other
-  ncells_C4_other <- p$ncells_C4_other
-  ncells_C5_other <- p$ncells_C5_other
-
   function(t, y, parms) {
     # Pembrolizumab dose
     if (any(abs(t - dose_times) < 0.01)) {
       y["aPD1_C"] <- y["aPD1_C"] + dose_nM
     }
     # Metastatic seeding (Ln1)
-    if (abs(t - delay_Ln1) < 0.01 && seeding == 1) {
+    if (abs(t - parms$delay_Ln1) < 0.01 && parms$seeding == 1) {
       y["start_Ln1"] <- 1
-      y["C1_Ln1"] <- ncells_C1_Ln1
-      y["C2_Ln1"] <- ncells_C2_Ln1
-      y["C3_Ln1"] <- ncells_C3_Ln1
-      y["C4_Ln1"] <- ncells_C4_Ln1
-      y["C5_Ln1"] <- ncells_C5_Ln1
+      y["C1_Ln1"] <- parms$ncells_C1_Ln1
+      y["C2_Ln1"] <- parms$ncells_C2_Ln1
+      y["C3_Ln1"] <- parms$ncells_C3_Ln1
+      y["C4_Ln1"] <- parms$ncells_C4_Ln1
+      y["C5_Ln1"] <- parms$ncells_C5_Ln1
     }
     # Metastatic seeding (Ln2)
-    if (abs(t - delay_Ln2) < 0.01 && seeding == 1) {
+    if (abs(t - parms$delay_Ln2) < 0.01 && parms$seeding == 1) {
       y["start_Ln2"] <- 1
-      y["C1_Ln2"] <- ncells_C1_Ln2
-      y["C2_Ln2"] <- ncells_C2_Ln2
-      y["C3_Ln2"] <- ncells_C3_Ln2
-      y["C4_Ln2"] <- ncells_C4_Ln2
-      y["C5_Ln2"] <- ncells_C5_Ln2
+      y["C1_Ln2"] <- parms$ncells_C1_Ln2
+      y["C2_Ln2"] <- parms$ncells_C2_Ln2
+      y["C3_Ln2"] <- parms$ncells_C3_Ln2
+      y["C4_Ln2"] <- parms$ncells_C4_Ln2
+      y["C5_Ln2"] <- parms$ncells_C5_Ln2
     }
     # Metastatic seeding (other)
-    if (abs(t - delay_other) < 0.01 && seeding == 1) {
+    if (abs(t - parms$delay_other) < 0.01 && parms$seeding == 1) {
       y["start_other"] <- 1
-      y["C1_oth"] <- ncells_C1_other
-      y["C2_oth"] <- ncells_C2_other
-      y["C3_oth"] <- ncells_C3_other
-      y["C4_oth"] <- ncells_C4_other
-      y["C5_oth"] <- ncells_C5_other
+      y["C1_oth"] <- parms$ncells_C1_other
+      y["C2_oth"] <- parms$ncells_C2_other
+      y["C3_oth"] <- parms$ncells_C3_other
+      y["C4_oth"] <- parms$ncells_C4_other
+      y["C5_oth"] <- parms$ncells_C5_other
     }
     # Surgery
-    if (do_surgery == 1 && abs(t - surgery_time) < 0.01) {
+    if (parms$do_surgery == 1 && abs(t - parms$surgery_time) < 0.01) {
       y["C1_T"] <- 0; y["C2_T"] <- 0; y["C3_T"] <- 0
       y["C4_T"] <- 0; y["C5_T"] <- 0; y["start"] <- 0
     }

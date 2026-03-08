@@ -7,79 +7,6 @@
 
 define_initial_conditions <- function(p) {
 
-  # =========================================================================
-  # Pre-compute quasi-steady-state values for fast T cell activation compartments.
-  # These variables start at 0 in the original model but fill up within ~1 day.
-  # Setting them at their SS eliminates the stiffness from relative rates -> infinity.
-  # =========================================================================
-
-  # Naive T cell counts in LN compartments (from Data_S1 Species sheet)
-  nT0_LN0    <- 155.69    # nT0 per LN compartment
-  nT1_LN0    <- 113.74    # nT1 per LN compartment
-
-  # f_act at t=0: mAPC_LN = APC0_LN (baseline mature APC in lymph node)
-  f_act0     <- p$APC0_LN / (p$mAPC_50 + p$APC0_LN)
-
-  # TGFb Hill at baseline
-  H_TGFb0   <- p$TGFbase / (p$TGFb_50 + p$TGFbase)
-
-  # neoantigen probabilities
-  p_vec      <- c(p$p_1, p$p_2, p$p_3, p$p_4, p$p_5, p$p_6, p$p_7, p$p_8)
-
-  # --- LN activation intermediates (fast, time scale ~ 1/(k_pro+k_death) ~ 1 day) ---
-  aTh_LN_ss  <- p$k_Th_act * f_act0 * nT0_LN0  / (p$k_T0_pro + p$k_T0_death)
-  aT0_LN_ss  <- p$k_T0_act * f_act0 * H_TGFb0 * nT0_LN0 / (p$k_T0_pro + p$k_T0_death)
-
-  # --- LN effector pools (time scale ~ 1/(q_out+k_death) ~ 0.04 day) ---
-  Th_LN_ss   <- p$k_T0_pro * aTh_LN_ss * p$N_aTh / (p$q_T0_LN_out + p$k_T0_death)
-  Th_LNo_ss  <- p$k_Th_act * f_act0 * nT0_LN0   / (p$q_T0_LN_out + p$k_T0_death)
-  T0_LN_ss   <- p$k_T0_pro * aT0_LN_ss * p$N_aT0 / (p$q_T0_LN_out + p$k_T0_death)
-  T0_LNo_ss  <- p$k_T0_act * f_act0 * H_TGFb0 * nT0_LN0 / (p$q_T0_LN_out + p$k_T0_death)
-
-  # Per-neoantigen CD8 T in LN (time scale ~ 0.04 day)
-  aT_LN_ss   <- p$k_T1_act * f_act0 * nT1_LN0 * p_vec / (p$k_T1_pro + p$k_T1_death)
-  T_LN_ss    <- p$k_T1_pro * aT_LN_ss * p$N_aT1 / (p$q_T1_LN_out + p$k_T1_death)
-  T_LNo_ss   <- p$k_T1_act * f_act0 * nT1_LN0  * p_vec / (p$q_T1_LN_out + p$k_T1_death)
-
-  # --- Central T cell pools ---
-  # SS: q_LN_out * 3 * T_LN_ss = (k_death + q_P_in - q_P_out*q_P_in/(q_P_out+k_death)) * T_C
-  # eff_loss = k_death * (1 + q_P_in/(q_P_out+k_death))
-  eff_loss_T0C <- p$k_T0_death * (1 + p$q_T0_P_in * 1440 / (p$q_T0_P_out + p$k_T0_death))
-  eff_loss_T1C <- p$k_T1_death * (1 + p$q_T1_P_in / (p$q_T1_P_out + p$k_T1_death))
-
-  T0_C_ss    <- p$q_T0_LN_out * (T0_LN_ss + T0_LN_ss + T0_LNo_ss) / eff_loss_T0C
-  Th_C_ss    <- p$q_T0_LN_out * (Th_LN_ss + Th_LN_ss + Th_LNo_ss) / eff_loss_T0C
-  T_C_ss     <- p$q_T1_LN_out * (T_LN_ss  + T_LN_ss  + T_LNo_ss)  / eff_loss_T1C
-
-  # --- Peripheral T cell pools at SS ---
-  # dT0_P = q_T0_P_in * 1440 * T0_C - (q_T0_P_out + k_T0_death) * T0_P = 0
-  T0_P_ss    <- p$q_T0_P_in * 1440 * T0_C_ss / (p$q_T0_P_out + p$k_T0_death)
-  Th_P_ss    <- p$q_T0_P_in * 1440 * Th_C_ss / (p$q_T0_P_out + p$k_T0_death)
-  # dT1_P = q_T1_P_in * T1_C - (q_T1_P_out + k_T1_death) * T1_P = 0
-  T_P_ss     <- p$q_T1_P_in * T_C_ss / (p$q_T1_P_out + p$k_T1_death)
-
-  # --- Tumor-infiltrating T cell pools at SS ---
-  # Tumor volume at IC (primary tumor = 4.7e6 cells)
-  C_total_T0 <- 1982278.03 + 45658.47 + 1927.60 + 2488714.56 + 181421.35  # = 4.7e6
-  V_T0_vol   <- max(p$V_Tmin, C_total_T0 * p$vol_cell / p$Ve_T * 1e-12)
-  d_T0       <- (6 * V_T0_vol / pi)^(1/3)
-  v_T0       <- d_T0^3 * pi / 6
-  # Met volumes are V_Tmin (near-zero cancer cells)
-  v_met0     <- 1e-6  # ~V_Tmin in cm^3
-
-  # dT_T = q_T_T * v_T * T_C - k_death * T_T - kill_terms (= 0 at t=0, no effectors)
-  T_T_ss     <- p$q_T1_T_in     * 1440 * v_T0  * T_C_ss / p$k_T1_death
-  T_Ln1_ss   <- p$q_T1_T_in_Ln1 * 1440 * v_met0 * T_C_ss / p$k_T1_death
-  T_Ln2_ss   <- p$q_T1_T_in_Ln2 * 1440 * v_met0 * T_C_ss / p$k_T1_death
-  T_oth_ss   <- p$q_T1_T_in_other * 1440 * v_met0 * T_C_ss / p$k_T1_death
-
-  # T0/Th in primary tumor at SS
-  # dT0_T = q_T0_P_in * 1440 * T0_C * V_T/V_C + k_Th_Treg * H_TGFb_T * Th_T - k_T0_death * T0_T
-  # At t=0 with Th_T ~ 0: T0_T_ss = q_T0_P_in * 1440 * T0_C_ss * V_T / V_C / k_T0_death
-  # But V_C is central volume in liters - check parameter
-  T0_T_ss    <- p$q_T0_P_in * 1440 * T0_C_ss * V_T0_vol / p$V_C / p$k_T0_death
-  Th_T_ss    <- p$q_T0_P_in * 1440 * Th_C_ss * V_T0_vol / p$V_C / p$k_T0_death
-
   # Helper: named zero vector
   IC <- c(
     # -------------------------------------------------------------------------
@@ -90,20 +17,17 @@ define_initial_conditions <- function(p) {
     aPD1_LN  = 0,  aPD1_LNl = 0,  aPD1_LNo = 0,
 
     # -------------------------------------------------------------------------
-    # CARRYING CAPACITY K: initialized at quasi-SS of angiogenesis model
-    # K_target = C_total * (1 + f_vas * k_K_g/k_K_d)
+    # CARRYING CAPACITY K (initial from Desai 2006: ~10300 cells at start)
     # -------------------------------------------------------------------------
-    K_T   = max(4.7e6 * (1 + (p$k_vas_Csec*4.7e6/p$k_vas_deg)/(p$c_vas_50 + p$k_vas_Csec*4.7e6/p$k_vas_deg) * p$k_K_g/p$k_K_d), 1e7),
-    K_Ln1 = 1e3,
-    K_Ln2 = 1e3,
-    K_oth = 1e3,
+    K_T   = 10300,
+    K_Ln1 = 10300,
+    K_Ln2 = 10300,
+    K_oth = 10300,
 
     # -------------------------------------------------------------------------
-    # ANGIOGENIC FACTOR: steady state = k_vas_Csec * C_total / k_vas_deg
-    # Primary tumor C_total ~ 4.7e6 cells
+    # ANGIOGENIC FACTOR (starts at 0, builds up from cancer secretion)
     # -------------------------------------------------------------------------
-    cvas_T   = p$k_vas_Csec * 4.7e6 / p$k_vas_deg,
-    cvas_Ln1 = 0, cvas_Ln2 = 0, cvas_oth = 0,
+    cvas_T   = 0, cvas_Ln1 = 0, cvas_Ln2 = 0, cvas_oth = 0,
 
     # -------------------------------------------------------------------------
     # CANCER CLONES (PRIMARY TUMOR - from Data_S1 Species sheet)
@@ -151,17 +75,16 @@ define_initial_conditions <- function(p) {
     c_T=0, c_Ln1=0, c_Ln2=0, c_oth=0,
 
     # -------------------------------------------------------------------------
-    # APC (immature) - steady state: APC = APC0 (source = k_APC_death * APC0,
-    #   loss = k_APC_death * APC => dAPC = 0 when APC = APC0)
+    # APC (immature) - starts at steady-state density (APC0)
     # -------------------------------------------------------------------------
-    APC_T   = p$APC0_T,
-    APC_Ln1 = p$APC0_T_Ln1,
-    APC_Ln2 = p$APC0_T_Ln2,
-    APC_oth = p$APC0_T_other,
+    APC_T   = p$APC0_T      * p$V_Tmin,   # cells (density * volume)
+    APC_Ln1 = p$APC0_T_Ln1 * p$V_Tmin,
+    APC_Ln2 = p$APC0_T_Ln2 * p$V_Tmin,
+    APC_oth = p$APC0_T_other * p$V_Tmin,
 
-    # mAPC: steady state = APC0_LN (source = k_mAPC_death*APC0_LN, loss = k_mAPC_death*mAPC)
+    # mAPC - starts at 0
     mAPC_T=0, mAPC_Ln1=0, mAPC_Ln2=0, mAPC_oth=0,
-    mAPC_LN=p$APC0_LN, mAPC_LNl=p$APC0_LN, mAPC_LNo=p$APC0_LN,
+    mAPC_LN=0, mAPC_LNl=0, mAPC_LNo=0,
 
     # -------------------------------------------------------------------------
     # NAIVE T CELLS (from Data_S1 Species sheet)
@@ -179,27 +102,26 @@ define_initial_conditions <- function(p) {
     nT1_LN  = 113.74,  nT1_LNl = 113.74,  nT1_LNo = 113.74,
 
     # -------------------------------------------------------------------------
-    # ACTIVATED T CELLS IN LN - initialized at quasi-SS to avoid stiffness
-    # (were 0 in original but fill within ~1 day from APC0_LN baseline)
+    # ACTIVATED T CELLS IN LN - all start at 0
     # -------------------------------------------------------------------------
-    aT0_LN=aT0_LN_ss, aT0_LNl=aT0_LN_ss,
-    aTh_LN=aTh_LN_ss, aTh_LNl=aTh_LN_ss,
-    T0_LN=T0_LN_ss,   T0_LNl=T0_LN_ss,   T0_LNo=T0_LNo_ss,
-    Th_LN=Th_LN_ss,   Th_LNl=Th_LN_ss,   Th_LNo=Th_LNo_ss,
+    aT0_LN=0, aT0_LNl=0,
+    aTh_LN=0, aTh_LNl=0,
+    T0_LN=0,  T0_LNl=0, T0_LNo=0,
+    Th_LN=0,  Th_LNl=0, Th_LNo=0,
 
     # IL-2 in LN: ~0.00019 nM from Data_S1
     IL2_LN  = 0.00019,
     IL2_LNl = 0.00019,
 
     # -------------------------------------------------------------------------
-    # TREG / TH IN CENTRAL AND PERIPHERAL - initialized at quasi-SS
+    # TREG / TH IN CENTRAL AND PERIPHERAL - start at 0
     # -------------------------------------------------------------------------
-    T0_C=T0_C_ss, T0_P=T0_P_ss,
-    Th_C=Th_C_ss, Th_P=Th_P_ss,
+    T0_C=0, T0_P=0,
+    Th_C=0, Th_P=0,
 
-    # Treg / Th in tumors - initialized at quasi-SS
-    T0_T=T0_T_ss, T0_Ln1=0, T0_Ln2=0, T0_oth=0,
-    Th_T=Th_T_ss, Th_Ln1=0, Th_Ln2=0, Th_oth=0,
+    # Treg / Th in tumors - start at 0
+    T0_T=0, T0_Ln1=0, T0_Ln2=0, T0_oth=0,
+    Th_T=0, Th_Ln1=0, Th_Ln2=0, Th_oth=0,
 
     # -------------------------------------------------------------------------
     # SIMULATION CONTROL FLAGS
@@ -210,18 +132,16 @@ define_initial_conditions <- function(p) {
     start_other= 0     # other met: off until seeding
   )
 
-  # --- Per-neoantigen CD8 T cells (j = 1..8): initialized at quasi-SS ---
-  # All pools (LN, central, peripheral, tumor) at quasi-SS for numerical stability.
-  # Met compartments start at 0 (no active metastatic disease at t=0).
+  # --- Per-neoantigen CD8 T cells (j = 1..8): all start at 0 ---
   for (j in 1:8) {
-    IC[paste0("aT",j,"_LN")]  <- aT_LN_ss[j]
-    IC[paste0("aT",j,"_LNl")] <- aT_LN_ss[j]
-    IC[paste0("T",j,"_LN")]   <- T_LN_ss[j]
-    IC[paste0("T",j,"_LNl")]  <- T_LN_ss[j]
-    IC[paste0("T",j,"_LNo")]  <- T_LNo_ss[j]
-    IC[paste0("T",j,"_C")]    <- T_C_ss[j]
-    IC[paste0("T",j,"_P")]    <- T_P_ss[j]
-    IC[paste0("T",j,"_T")]    <- T_T_ss[j]
+    IC[paste0("aT",j,"_LN")]  <- 0
+    IC[paste0("aT",j,"_LNl")] <- 0
+    IC[paste0("T",j,"_LN")]   <- 0
+    IC[paste0("T",j,"_LNl")]  <- 0
+    IC[paste0("T",j,"_LNo")]  <- 0
+    IC[paste0("T",j,"_C")]    <- 0
+    IC[paste0("T",j,"_P")]    <- 0
+    IC[paste0("T",j,"_T")]    <- 0
     IC[paste0("T",j,"_Ln1")]  <- 0
     IC[paste0("T",j,"_Ln2")]  <- 0
     IC[paste0("T",j,"_oth")]  <- 0
