@@ -42,22 +42,23 @@ run_simulation <- function(p_override = list(),
   eventfun <- make_event_function(p, t_treat_start, t_treat_end)
 
   # --- Run ODE ---
+  out_df <- NULL
   tryCatch({
     out <- ode(
       y       = IC,
       times   = times,
       func    = tnbc_ode,
       parms   = parms,
-      method  = solver,
+      method  = "vode",     # Adams/BDF, well-suited for stiff large systems
       events  = list(func = eventfun, time = ev_times),
-      atol    = 1e-6,
-      rtol    = 1e-6,
-      maxsteps= 50000
+      atol    = 1e-6,       # absolute tolerance
+      rtol    = 1e-4,       # relative tolerance
+      hmax    = 1.0,        # max step = 1 day
+      maxsteps= 500000
     )
     out_df <- as.data.frame(out)
   }, error = function(e) {
     if (verbose) message("ODE solver error: ", e$message)
-    return(NULL)
   })
 
   if (is.null(out_df)) return(list(success = FALSE))

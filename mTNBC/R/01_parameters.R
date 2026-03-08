@@ -50,6 +50,16 @@ define_parameters <- function() {
   p$delay_other <- 2100     # day - seeding time of other met
 
   # ---------------------------------------------------------------------------
+  # METASTATIC SEEDING: initial cancer cell counts per clone (default 1e5 each)
+  # These can be overridden by scale_IC_by_diameter() for VP generation
+  # ---------------------------------------------------------------------------
+  for (comp in c("Ln1", "Ln2", "other")) {
+    for (ci in 1:5) {
+      p[[ paste0("ncells_C", ci, "_", comp) ]] <- 1e5
+    }
+  }
+
+  # ---------------------------------------------------------------------------
   # ANTIGEN CONCENTRATIONS (self-antigen + neoantigens per clone)
   # ---------------------------------------------------------------------------
   ag0 <- 5.4e-13  # mol/cell - self-antigen
@@ -434,6 +444,27 @@ define_parameters <- function() {
   p$MW_pembrolizumab   <- 146700 # Da (g/mol) - molecular weight of pembrolizumab
   p$dose_interval      <- 21    # days - q3w
   p$n_doses            <- 35    # maximum number of doses (~2 years)
+
+  # ---------------------------------------------------------------------------
+  # PARAMETERS USED IN ODE BUT DEFINED SEPARATELY
+  # ---------------------------------------------------------------------------
+  # mAPC half-saturation for T cell activation in LN
+  p$mAPC_50    <- 100       # cells - mAPC half-max for T act (Luber 2010)
+
+  # Per-neoantigen TCR frequency (8 neoantigens, sum to ~0.04 of naive T cells)
+  # Equal distribution by default: each neoantigen ~0.005 of nT1 pool
+  p$p_1 <- 0.125; p$p_2 <- 0.125; p$p_3 <- 0.125; p$p_4 <- 0.125
+  p$p_5 <- 0.125; p$p_6 <- 0.125; p$p_7 <- 0.125; p$p_8 <- 0.125
+
+  # Expansion ratio: activated T cell -> effector T cells (per neoantigen)
+  p$N_aT1   <- 2000   # fold expansion (Gattinoni 2009)
+
+  # Initial tumor diameters (used as algebraic variables in ODE, but also stored)
+  # These are computed dynamically from state - provide default initialization
+  p$d_T_init   <- 3.0  # cm - primary tumor initial diameter
+  p$d_Ln1_init <- 0.1  # cm
+  p$d_Ln2_init <- 0.1  # cm
+  p$d_oth_init <- 0.1  # cm
 
   return(p)
 }
